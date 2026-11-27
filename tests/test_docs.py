@@ -1,6 +1,7 @@
 """Documentation completeness gate (final work package). The strict site build checks that the docs render and link;
 this checks that nothing was left out: every module is in the API reference, every constraint and objective term
 has a formulation entry with a convexity note, the changelog follows Keep a Changelog, the pages exist."""
+import importlib
 import inspect
 import pkgutil
 import re
@@ -19,8 +20,12 @@ def text(name):
 
 
 def public_classes(module, base):
-    return sorted({c.__name__ for _, c in inspect.getmembers(module, inspect.isclass)
-                   if issubclass(c, base) and c is not base and c.__module__ == module.__name__})
+    modules = [module] + ([importlib.import_module(f"{module.__name__}.{m.name}")
+                           for m in pkgutil.iter_modules(module.__path__)]
+                          if hasattr(module, "__path__") else [])
+    return sorted({c.__name__ for m in modules for _, c in inspect.getmembers(m, inspect.isclass)
+                   if issubclass(c, base) and c is not base
+                   and (c.__module__ == module.__name__ or c.__module__.startswith(module.__name__ + "."))})
 
 
 def test_pages_exist_with_a_title_and_mkdocs_nav_lists_them():
@@ -41,8 +46,8 @@ def test_every_module_is_in_the_api_reference():
 def test_every_constraint_and_objective_term_has_a_formulation_entry():
     from pydantic import BaseModel
     names = public_classes(constraints, BaseModel) + public_classes(objectives, BaseModel)
-    names = [n for n in names if n not in ("Bounds", "ConstraintBase")]
-    assert {"Budget", "GroupRiskShareCap", "RiskTerm", "GroupRiskCap"} <= set(names) and len(names) == 11
+    names = [n for n in names if n not in ("Bounds", "ConstraintBase", "ObjectiveBase")]
+    assert {"Budget", "GroupRiskShareCap", "RiskTerm", "GroupRiskCap"} <= set(names) and len(names) == 12
     body = text("formulation.md")
     sections = re.split(r"^### ", body, flags=re.M)[1:]
     for n in names:

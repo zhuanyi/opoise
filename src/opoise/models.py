@@ -11,19 +11,23 @@ from __future__ import annotations
 from typing import Literal
 
 import numpy as np
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .constraints import (
+    CONSTRAINTS,
     AssetBounds,
     BetaBounds,
     Constraint,
+    ConstraintBase,
     FactorExposureBounds,
     GroupBounds,
     GroupRiskCap,
     GroupRiskShareCap,
     LinearBounds,
+    TradeBounds,
 )
-from .objectives import ObjectiveTerm
+from .objectives import OBJECTIVES, ObjectiveTerm
+from .registry import dispatch
 
 UNASSIGNED = "UNASSIGNED"
 """Report label for assets that do not carry a grouped attribute; reserved."""
@@ -318,6 +322,18 @@ class Problem(BaseModel):
     constraints: list[Constraint] = []
     settings: SolverSettings = SolverSettings()
 
+    @field_validator("constraints", mode="before")
+    @classmethod
+    def _dispatch_constraints(cls, value):
+        """Turn the dicts of a document into the registered constraint classes."""
+        return dispatch(value, CONSTRAINTS)
+
+    @field_validator("objective", mode="before")
+    @classmethod
+    def _dispatch_objective(cls, value):
+        """Turn the dicts of a document into the registered objective classes."""
+        return dispatch(value, OBJECTIVES)
+
     @model_validator(mode="after")
     def _validate(self) -> Problem:
         ids = self.universe.ids()
@@ -348,7 +364,7 @@ class Problem(BaseModel):
             if variance <= 0.0:
                 raise ValueError("benchmark: predicted variance is zero (empty, all-zero or riskless benchmark)")
         for index, term in enumerate(self.objective):
-            if term.active and self.benchmark is None:
+            if getattr(term, "active", False) and self.benchmark is None:
                 raise ValueError(f"objective term {index} (active risk) requires a benchmark")
         factor_ids = set(self.risk_model.factor_ids)
         seen: set[str] = set()
@@ -376,7 +392,7 @@ class Problem(BaseModel):
                 for factor_id in constraint.bounds:
                     if factor_id not in factor_ids:
                         raise ValueError(f"constraint '{constraint.name}': unknown factor '{factor_id}'")
-            if isinstance(constraint, AssetBounds):
+            if isinstance(constraint, (AssetBounds, TradeBounds)):
                 for asset_id in constraint.per_asset:
                     if asset_id not in id_set:
                         raise ValueError(f"constraint '{constraint.name}': unknown asset '{asset_id}'")
@@ -385,3 +401,52 @@ class Problem(BaseModel):
                     if asset_id not in id_set:
                         raise ValueError(f"constraint '{constraint.name}': unknown asset '{asset_id}'")
         return self
+
+    def add_constraint(self, constraint: ConstraintBase | dict) -> Problem:
+        """Return a new problem with one more constraint.
+
+        Every validator of the problem runs again on the result, so a
+        duplicate name or a constraint that conflicts with the data fails the
+        same way as at construction.
+
+        Parameters
+        ----------
+        constraint : ConstraintBase or dict
+            The constraint to add; a dict names its type tag.
+
+        Returns
+        -------
+        Problem
+            A new validated problem; this one is unchanged.
+
+        Raises
+        ------
+        pydantic.ValidationError
+            If the constraint is invalid or conflicts with the problem.
+        """
+        data = {**self.model_dump(mode="python"), "constraints": [*self.constraints, constraint]}
+        return Problem.model_validate(data)
+
+    def remove_constraint(self, name: str) -> Problem:
+        """Return a new problem without the constraint of that name.
+
+        Parameters
+        ----------
+        name : str
+            Name of the constraint to remove.
+
+        Returns
+        -------
+        Problem
+            A new validated problem; this one is unchanged.
+
+        Raises
+        ------
+        ValueError
+            If no constraint has that name ("no constraint named 'x'").
+        """
+        remaining = [constraint for constraint in self.constraints if constraint.name != name]
+        if len(remaining) == len(self.constraints):
+            raise ValueError(f"no constraint named '{name}'")
+        data = {**self.model_dump(mode="python"), "constraints": remaining}
+        return Problem.model_validate(data)

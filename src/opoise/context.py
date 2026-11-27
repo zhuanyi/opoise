@@ -4,54 +4,21 @@ A CompileContext holds everything the row builders need: the numpy data of a
 problem sliced to its universe rows, the factor square root that turns a
 variance into a squared norm, and the single cvxpy decision variable. A Row is
 one logical constraint (a scalar or one vector) before it is split into cvxpy
-constraints.
+constraints; it is defined in opoise.rows and re-exported here.
 
 Only this module, opoise.compiler, opoise.optimize and the later modules that
 call a solver import cvxpy, so 'import opoise' leaves it unloaded.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 import cvxpy as cp
 import numpy as np
 
 from .diagnostics import beta_vector
 from .models import Problem
+from .rows import Row
 
-
-@dataclass
-class Row:
-    """One logical constraint row, before emission as cvxpy constraints.
-
-    The expression has one element per label. Every element is compared with
-    the matching element of the bounds, so a scalar row is a vector row of
-    length one.
-
-    Attributes
-    ----------
-    constraint : str
-        Name of the constraint object that produced the row.
-    labels : list of str
-        Report labels, one per element: the constraint name for a scalar row,
-        name[key] for a vector row.
-    expr : cvxpy.Expression
-        Affine or convex expression of shape (len(labels),).
-    lower : numpy.ndarray
-        Float64 lower bounds, -infinity where the element has no lower bound.
-    upper : numpy.ndarray
-        Float64 upper bounds, +infinity where the element has no upper bound.
-    convex : bool
-        True when the expression is convex rather than affine (a norm); such a
-        row may only carry upper bounds.
-    """
-
-    constraint: str
-    labels: list[str]
-    expr: cp.Expression
-    lower: np.ndarray
-    upper: np.ndarray
-    convex: bool = False
+__all__ = ["CompileContext", "Row"]
 
 
 class CompileContext:

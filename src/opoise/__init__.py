@@ -12,13 +12,18 @@ from .constraints import (
     Bounds,
     Budget,
     Constraint,
+    ConstraintBase,
     FactorExposureBounds,
     GroupBounds,
     GroupRiskCap,
     GroupRiskShareCap,
     LinearBounds,
     RiskCap,
+    TradeBounds,
     Turnover,
+    constraint_types,
+    register_constraint,
+    unregister_constraint,
 )
 from .diagnostics import predicted_beta, risk_report
 from .errors import (
@@ -28,8 +33,16 @@ from .errors import (
     WorkspaceFormatError,
 )
 from .models import Asset, FactorRiskModel, Problem, SolverSettings, Universe
-from .objectives import ObjectiveTerm, RiskTerm
+from .objectives import (
+    ObjectiveBase,
+    ObjectiveTerm,
+    RiskTerm,
+    objective_types,
+    register_objective,
+    unregister_objective,
+)
 from .providers import RiskModelProvider
+from .registry import Category, categories, register_category, unregister_category
 from .result import (
     ConstraintRowReport,
     Diagnostics,
@@ -46,7 +59,7 @@ from .workspace import (
     save_workspace,
 )
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 _LAZY = {"solve": "optimize", "compile_problem": "compiler", "CompiledProblem": "compiler"}
 """Public names that need cvxpy, and the module that defines them."""
@@ -87,8 +100,10 @@ __all__ = [
     "BetaBounds",
     "Bounds",
     "Budget",
+    "Category",
     "CompiledProblem",
     "Constraint",
+    "ConstraintBase",
     "ConstraintRowReport",
     "Diagnostics",
     "FactorExposureBounds",
@@ -99,6 +114,7 @@ __all__ = [
     "InfeasibilityReport",
     "LinearBounds",
     "NativeWorkspaceLoader",
+    "ObjectiveBase",
     "ObjectiveTerm",
     "OpoiseError",
     "Problem",
@@ -112,16 +128,26 @@ __all__ = [
     "SolverNotAvailableError",
     "SolverSettings",
     "SyntheticData",
+    "TradeBounds",
     "Turnover",
     "Universe",
     "WorkspaceFormatError",
     "WorkspaceLoader",
     "__version__",
+    "categories",
     "compile_problem",
+    "constraint_types",
     "load_workspace",
+    "objective_types",
     "predicted_beta",
+    "register_category",
+    "register_constraint",
+    "register_objective",
     "risk_report",
     "save_workspace",
     "solve",
     "synthetic_data",
+    "unregister_category",
+    "unregister_constraint",
+    "unregister_objective",
 ]

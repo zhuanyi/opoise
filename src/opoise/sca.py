@@ -18,7 +18,7 @@ import numpy as np
 
 from .compiler import CompiledProblem, compile_problem, run
 from .diagnostics import risk_report
-from .errors import SolverCapabilityError
+from .errors import OpoiseError, SolverCapabilityError
 from .models import Problem
 from .result import ConstraintRowReport, Diagnostics, Result, ScaReport
 
@@ -57,6 +57,10 @@ def solve_sca(problem: Problem) -> Result:
     SolverCapabilityError
         If the solver is OSQP, whose subproblems would carry a convex
         quadratic constraint and are not QPs.
+    OpoiseError
+        If a constraint other than GroupRiskShareCap sets requires_sca, which
+        the SCA linearisation does not support ("... the SCA solver only
+        linearises group_risk_share_cap").
 
     Notes
     -----
@@ -67,20 +71,27 @@ def solve_sca(problem: Problem) -> Result:
     of iterations gives status optimal_inaccurate with converged False, never
     a silent optimum.
     """
+    from .constraints.risk import GroupRiskShareCap
     from .optimize import evaluate_rows, map_status, solve
 
     settings = problem.settings
     if settings.solver == "OSQP":
         raise SolverCapabilityError(_OSQP_REFUSAL)
+    for constraint in problem.constraints:
+        if constraint.requires_sca and not isinstance(constraint, GroupRiskShareCap):
+            raise OpoiseError(
+                f"constraint '{constraint.name}' of type '{constraint.type}' sets requires_sca, "
+                "but the SCA solver only linearises group_risk_share_cap"
+            )
     cap_of = {
         constraint.name: constraint
         for constraint in problem.constraints
-        if constraint.type == "group_risk_share_cap"
+        if constraint.requires_sca
     }
     base = problem.model_copy(
         update={
             "constraints": [
-                constraint for constraint in problem.constraints if constraint.type != "group_risk_share_cap"
+                constraint for constraint in problem.constraints if not constraint.requires_sca
             ]
         }
     )

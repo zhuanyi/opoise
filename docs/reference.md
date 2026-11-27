@@ -6,6 +6,8 @@ On GitHub or Forgejo this page shows only the `:::` directives. Build the site w
 
 ::: opoise.errors
 
+::: opoise.registry
+
 ::: opoise.constraints
 
 ::: opoise.objectives
@@ -23,6 +25,8 @@ On GitHub or Forgejo this page shows only the `:::` directives. Build the site w
 ::: opoise.diagnostics
 
 ::: opoise.context
+
+::: opoise.rows
 
 ::: opoise.compiler
 

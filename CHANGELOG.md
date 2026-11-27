@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-27
+
 ### Added
 
 - Declarative problem models: universe and assets with grouping attributes, a
@@ -102,6 +104,61 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   first subproblem can be infeasible for a feasible problem.
 - Documentation: the extension notes for risk models, file loaders and solver
   options now live in the user guide's "Extending Opoise" section.
+- A constraint registry: every constraint type is registered under its `type`
+  tag and a category. A project declares a `Category` with
+  `register_category`, subclasses `ConstraintBase` with a `build` method and
+  decorates the class with `@register_constraint`; the new type then works in a
+  problem, a JSON document and a workspace file while it is registered.
+- Constraint categories, one module per category under `opoise.constraints`:
+  `BUDGET`, `HOLDING`, `TRADE`, `TURNOVER`, `RISK`, `EXPOSURE` and `LINEAR`.
+  The package imports every module in sorted order, so a new built-in category
+  is one file. `categories()` and `constraint_types()` list what is
+  registered.
+- `TradeBounds`: per-asset lower and upper bounds on the trade against the
+  initial holdings, w - w0, with per-asset overrides, compiled as one affine
+  vector row.
+- An objective registry: every objective term is registered under its `type`
+  tag and a category. A project declares a `Category` with
+  `register_category`, subclasses `ObjectiveBase` with a `build` method and
+  decorates the class with `@register_objective`; the term then works in a
+  problem, a JSON document and a workspace file while it is registered.
+- Objective categories, one module per category under `opoise.objectives`:
+  `RISK`. The package imports every module in sorted order, so a new built-in
+  category is one file. `categories("objective")` and `objective_types()` list
+  what is registered.
+- Objective-term validation: the compiler raises `OpoiseError` naming the term
+  index and type when a term's `build()` does not return a scalar cvxpy
+  expression, or returns a non-convex one.
+
+### Changed
+
+- Constraints live in one module per category instead of one module;
+  `opoise.constraints`, `opoise.context.Row` and every existing import path
+  keep working.
+- The compiler asks each constraint for its row through `build(ctx)` instead of
+  dispatching on a builder table, and reports a malformed or non-DCP row with
+  the constraint name and its type.
+- A constraint declares whether it needs a linearisation point with
+  `requires_sca`, which selects the sequential approximation without comparing
+  type tags.
+- Problem dumps keep the type tag and every subclass field of a constraint; an
+  unknown tag raises a validation error that lists the registered tags.
+  `Problem.add_constraint` and `Problem.remove_constraint` return a new
+  validated problem.
+- Constraint lists reject a dict without a `type` tag and a bare
+  `ConstraintBase`, and accept a tuple of entries as well as a list. A row
+  that is not one-dimensional with one element per label, or a
+  `requires_sca` type other than `GroupRiskShareCap`, now fails with a
+  message that names the constraint instead of a later crash.
+- Objective terms live in one module per category instead of one module;
+  `opoise.objectives` and every existing import path keep working.
+- The compiler minimises the sum of the objective terms through `build(ctx)`
+  instead of summing one fixed formula. A term that builds a non-convex
+  expression fails with a message that names its position and type.
+- The objective list dispatches tagged dicts through the registry like the
+  constraint list: an unknown tag, a dict without a tag and a bare
+  `ObjectiveBase` are rejected at validation, and a dump keeps the tag and
+  every subclass field of each term.
 
 ### Fixed
 

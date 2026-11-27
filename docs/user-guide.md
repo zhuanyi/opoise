@@ -267,6 +267,25 @@ print(result.status, min(w) >= -1e-9, max(w) <= 0.10 + 1e-9)
 A `per_asset` entry overrides both default sides for one asset, and
 `active=True` applies the limits to `w - benchmark` instead of `w`.
 
+### Bounds on the trade (`TradeBounds`)
+
+```python
+from opoise import Budget, Problem, RiskTerm, TradeBounds, solve, synthetic_data
+
+data = synthetic_data()
+problem = Problem(universe=data.universe, risk_model=data.risk_model, benchmark=data.benchmark,
+                  objective=[RiskTerm(aversion=1.0)],
+                  constraints=[Budget(name="budget"),
+                               TradeBounds(name="trade", lower=-0.05, upper=0.05)],
+                  initial_holdings=dict(data.benchmark))
+result = solve(problem)
+print(result.status, max(abs(value) for value in result.trades.values()) <= 0.05 + 1e-9)
+```
+
+The bound applies to the trade `w - w0` against the initial holdings, so no
+benchmark is involved; a `per_asset` entry replaces both default sides for one
+asset.
+
 ### Turnover against the initial holdings (`Turnover`)
 
 ```python
@@ -539,6 +558,83 @@ means mapping each element to an engine model (the universe and its grouping
 attributes, the risk model, the objective terms and each constraint) and
 raising one error that names every element left unmapped, so nothing is
 dropped silently.
+
+### Custom constraints and objectives
+
+The registries are open: a project adds a type in its own code, names a
+category, and the type then works in a problem, a JSON document and a workspace
+file while it is registered. A new built-in category is one module under
+`opoise/constraints/` or `opoise/objectives/`; the package imports every
+module there in sorted order.
+
+A constraint declares its category first. A built-in one can be reused, for
+example `opoise.constraints.holding.CATEGORY`, or a new one declared:
+
+```python
+from typing import Literal
+
+from opoise import Category, ConstraintBase, register_category, register_constraint
+
+MY_RISK = register_category(Category("MY_RISK", "Custom risk limits.", "constraint"))
+
+
+@register_constraint
+class BasketCap(ConstraintBase):
+    category = MY_RISK
+    type: Literal["basket_cap"] = "basket_cap"
+    assets: list[str]
+    limit: float
+
+    def build(self, ctx):
+        import cvxpy as cp
+        import numpy as np
+
+        from opoise.rows import Row
+
+        mask = np.zeros(ctx.n)
+        for asset_id in self.assets:
+            mask[ctx.index[asset_id]] = 1.0
+        return Row(constraint=self.name, labels=[self.name], expr=cp.hstack([mask @ ctx.w]),
+                   lower=np.array([-np.inf]), upper=np.array([float(self.limit)]))
+```
+
+Every subclass declares its type tag in the class body with
+`type: Literal[...] = ...`, sets `category` to a registered category of the
+same kind, and overrides `build(self, ctx)`; `@register_constraint` accepts the
+class or is applied as a decorator, and `register_constraint(MyClass,
+replace=True)` replaces a tag. A row carries its labels, an affine expression,
+or a convex one with upper bounds only; the compiler reports a malformed or
+non-DCP row with the constraint name and its type.
+
+An objective term uses `ObjectiveBase` and `@register_objective`. The
+compiler minimises the sum of the terms, so every term must build a convex
+expression, and a non-convex one is reported with its position and type:
+
+```python
+from typing import Literal
+
+from opoise import ObjectiveBase, register_objective
+from opoise.objectives import risk as objective_risk
+
+
+@register_objective
+class HalfRisk(ObjectiveBase):
+    category = objective_risk.CATEGORY
+    type: Literal["half_risk"] = "half_risk"
+
+    def build(self, ctx):
+        import cvxpy as cp
+
+        return 0.5 * cp.sum_squares(ctx.risk_parts(ctx.w, "total"))
+```
+
+A custom type is a frozen pydantic model like the built-ins, so `extra="forbid"`
+and any field validator apply as usual. It is written to a workspace file and
+read back while it is registered; loading a file whose tag is not registered
+fails with a validation error that lists the registered tags.
+`unregister_constraint` and `unregister_objective` remove a type, and a
+document naming its tag no longer loads, though instances already built keep
+working. Unregistering a built-in type is allowed and has the same effect.
 
 ### Holdings, benchmark and cash
 

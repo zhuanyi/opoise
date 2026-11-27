@@ -165,6 +165,24 @@ bounded assets appear in the report.
 It compiles to one vector row over the assets that have at least one finite
 bound after the overrides, in universe order, labelled `name[asset]`.
 
+### `TradeBounds`
+
+Fields: `lower`, `upper`, `per_asset` (a map from asset id to `Bounds`).
+
+$$
+l_i \le w_i - w_{0,i} \le u_i,
+$$
+
+with a `per_asset` entry replacing both default sides for that asset.
+
+Convexity: affine, so an LP constraint. Each side is a separate inequality;
+a missing default and no override leaves that asset out of the row, so only
+bounded assets appear in the report. The row compares the trade against the
+initial holdings, so no benchmark is involved.
+
+It compiles to one vector row over the assets that have at least one finite
+bound after the overrides, in universe order, labelled `name[asset]`.
+
 ### `Turnover`
 
 Fields: `limit` (at least 0).

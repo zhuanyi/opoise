@@ -162,7 +162,7 @@ def solve(problem: Problem) -> Result:
         raise SolverNotAvailableError(
             f"solver {settings.solver} is not installed (installed: {sorted(installed)})"
         )
-    if any(constraint.type == "group_risk_share_cap" for constraint in problem.constraints):
+    if any(constraint.requires_sca for constraint in problem.constraints):
         from .sca import solve_sca
 
         return solve_sca(problem)
