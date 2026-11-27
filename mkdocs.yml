@@ -1,0 +1,27 @@
+site_name: Opoise
+site_description: Convex portfolio construction engine on cvxpy
+docs_dir: docs
+theme:
+  name: readthedocs
+nav:
+  - Home: index.md
+  - Concepts: concepts.md
+  - Formulation: formulation.md
+  - User guide: user-guide.md
+  - API reference: reference.md
+  - Changelog: changelog.md
+markdown_extensions:
+  - admonition
+  - pymdownx.arithmatex:
+      generic: true
+extra_javascript:
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: numpy
+            show_root_heading: true
