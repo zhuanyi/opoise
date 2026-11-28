@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- CI: update actions/checkout to v7.0.1 and astral-sh/setup-uv to v10.4.0 (Node.js 24).
+
 ## [0.2.0] - 2026-11-27
 
 ### Added
